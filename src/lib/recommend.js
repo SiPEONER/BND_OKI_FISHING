@@ -2,6 +2,7 @@ import { SPECIES } from '../data/species.js'
 import { ZONES, zoneById } from '../data/zones.js'
 import { rigById } from '../data/rigs.js'
 import { isSeasonOpen } from './regs.js'
+import { bestZoneFor, summarize } from './communityStats.js'
 
 // The "matrix": a transparent points system. Every point comes with a reason
 // so the dashboard can show WHY a fish is recommended. Tune the weights here.
@@ -20,11 +21,13 @@ export const WEIGHTS = {
   tooWindy: -20,
   closedSeason: -20,
   springTide: 3,
+  perLocalReport: 4, // fresh CATCHING / BITES community reports
+  maxLocalReports: 12,
 }
 
 const LIGHT_TEXT = { DAWN: 'DAWN BITE', DAY: 'DAYTIME BITE', DUSK: 'DUSK BITE', NIGHT: 'NIGHT BITE' }
 
-export function scoreSpecies(sp, c) {
+export function scoreSpecies(sp, c, { localGood = 0 } = {}) {
   const p = sp.profile
   const W = WEIGHTS
   let score = W.base
@@ -63,15 +66,23 @@ export function scoreSpecies(sp, c) {
 
   if (c.moon?.springTide) add(W.springTide, `${c.moon.nearest} MOON TIDES`)
 
+  if (localGood > 0) {
+    add(Math.min(W.maxLocalReports, localGood * W.perLocalReport), `${localGood} LOCAL REPORT${localGood > 1 ? 'S' : ''}`)
+  }
+
   return { species: sp, score: Math.max(0, Math.min(100, score)), reasons }
 }
 
-export function pickZone(sp, c) {
+export function pickZone(sp, c, reports = []) {
   const wind = c.windMph ?? 0
   const prefs = sp.profile.zones
   if (wind > 20) {
     const sheltered = prefs.map(zoneById).find((z) => z?.sheltered) ?? ZONES.find((z) => z.sheltered)
     return { zone: sheltered, why: 'BLOWN OUT: GO SHELTERED' }
+  }
+  const local = reports.length ? bestZoneFor(reports, sp.id, c.t) : null
+  if (local) {
+    return { zone: zoneById(local.zoneId), why: `LOCALS REPORTING ${sp.short} HERE (${local.count})` }
   }
   if (sp.id === 'red-drum' && (c.windDir === 'E' || c.windDir === 'NE')) {
     return { zone: zoneById('A'), why: `${c.windDir} WIND PUSHES BAIT TO THE INLET` }
@@ -82,15 +93,19 @@ export function pickZone(sp, c) {
   return { zone: zoneById(prefs[0]), why: null }
 }
 
-/** Ranked recommendation for conditions c, or null if there's nothing to go on. */
-export function recommend(c, species = SPECIES) {
+/**
+ * Ranked recommendation for conditions c, or null if there's nothing to go on.
+ * Pass community `reports` to let fresh local catches count.
+ */
+export function recommend(c, { species = SPECIES, reports = [] } = {}) {
   if (!c) return null
+  const local = reports.length ? summarize(reports, c.t).goodBySpecies : new Map()
   const ranked = species
     .filter((s) => s.profile)
-    .map((s) => scoreSpecies(s, c))
+    .map((s) => scoreSpecies(s, c, { localGood: local.get(s.id) ?? 0 }))
     .sort((a, b) => b.score - a.score)
   const top = ranked[0]
-  const { zone, why } = pickZone(top.species, c)
+  const { zone, why } = pickZone(top.species, c, reports)
   // The original app's easter egg, preserved.
   const classified =
     top.species.id === 'red-drum' && c.tide?.direction === 'INCOMING' && c.windDir === 'NE' && (c.waterF ?? 0) > 68

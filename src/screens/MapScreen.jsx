@@ -7,6 +7,10 @@ import { SITE } from '../config.js'
 import { ZONES } from '../data/zones.js'
 import { addSpot, removeSpot, renameSpot, useSpots } from '../lib/settings.js'
 import { Btn, Label, Screen } from '../components/ui.jsx'
+import { useReports } from '../lib/community.js'
+import { summarize } from '../lib/communityStats.js'
+import { speciesById } from '../data/species.js'
+import { useNow } from '../hooks/useNow.js'
 
 const IMAGERY = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
 const LABELS = 'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}'
@@ -31,6 +35,9 @@ export default function MapScreen() {
   const [me, setMe] = useState(null)
   const [geoError, setGeoError] = useState(null)
   const markers = useRef({})
+  const feed = useReports()
+  const now = useNow()
+  const activity = useMemo(() => new Map(summarize(feed.reports, now, 24).zones.map((z) => [z.zoneId, z])), [feed.reports, now])
 
   const focus = (key, lat, lng) => {
     if (!map) return
@@ -102,6 +109,12 @@ export default function MapScreen() {
                   </div>
                   <div className="font-mono text-[11px] font-bold text-gray-500">{z.area}</div>
                   <div className="font-mono text-[11px] mt-1">{z.blurb}</div>
+                  {activity.get(z.id) && (
+                    <div className="font-mono text-[11px] font-bold mt-1 bg-black text-white px-1.5 py-0.5">
+                      LAST 24H: {activity.get(z.id).count} REPORT{activity.get(z.id).count > 1 ? 'S' : ''}
+                      {activity.get(z.id).topSpecies && ` · ${speciesById(activity.get(z.id).topSpecies)?.short} BITING`}
+                    </div>
+                  )}
                 </div>
               </Popup>
             </Marker>

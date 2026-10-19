@@ -55,7 +55,8 @@ export function fmtAgo(t, now = Date.now()) {
   if (m < 60) return `${m} MIN AGO`
   const h = Math.round(m / 60)
   if (h < 24) return `${h} HR AGO`
-  return `${Math.round(h / 24)} DAYS AGO`
+  const d = Math.round(h / 24)
+  return `${d} DAY${d > 1 ? 'S' : ''} AGO`
 }
 
 export function fmtDuration(ms) {

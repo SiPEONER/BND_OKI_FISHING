@@ -12,6 +12,7 @@ import { conditionsAt, lightAt } from './conditions.js'
 import { moonPhase } from './moon.js'
 import { compass } from './weather.js'
 import { bestWindows } from './forecast.js'
+import { summarize, bestZoneFor } from './communityStats.js'
 
 const H = 3600e3
 // 2026-10-19 12:00 EDT = 16:00Z
@@ -141,6 +142,26 @@ describe('recommendation matrix', () => {
     expect(rec.species.id).toBe('red-drum')
     expect(rec.classified).toBe(true)
   })
+  it('fresh local reports add points and pick the zone', () => {
+    const rep = (speciesId, zoneId, status, minsAgo) => ({ speciesId, zoneId, status, t: NOON - minsAgo * 60e3 })
+    const reports = [
+      rep('whiting', 'B', 'CATCHING', 30),
+      rep('whiting', 'B', 'BITES', 60),
+      rep('whiting', 'C', 'CATCHING', 90),
+      rep('whiting', 'C', 'SKUNKED', 20),
+      rep('red-drum', 'A', 'CATCHING', 9 * 60), // too old
+    ]
+    const base = recommend(baseCond).ranked.find((r) => r.species.id === 'whiting').score
+    const rec = recommend(baseCond, { reports })
+    const wh = rec.ranked.find((r) => r.species.id === 'whiting')
+    expect(wh.score).toBe(Math.min(100, base + 12))
+    expect(wh.reasons.at(-1).text).toBe('3 LOCAL REPORTS')
+    expect(rec.ranked.find((r) => r.species.id === 'red-drum').reasons.some((x) => x.text.includes('LOCAL'))).toBe(false)
+    if (rec.species.id === 'whiting') {
+      expect(rec.zone.id).toBe('B')
+      expect(rec.zoneWhy).toContain('LOCALS')
+    }
+  })
   it('still works with no water temp or tide', () => {
     const rec = recommend({ ...baseCond, waterF: null, tide: null })
     expect(rec.species).toBeTruthy()
@@ -204,6 +225,22 @@ describe('misc', () => {
     expect(w).toHaveLength(2)
     expect(w[0].end - w[0].start).toBe(2 * H)
     expect(w[0].peak).toBe(85)
+  })
+})
+
+describe('community summary', () => {
+  const rep = (speciesId, zoneId, status, minsAgo) => ({ speciesId, zoneId, status, t: NOON - minsAgo * 60e3 })
+  it('summarises the last 6 hours', () => {
+    const s = summarize(
+      [rep('red-drum', 'A', 'CATCHING', 10), rep('red-drum', 'A', 'BITES', 50), rep('spot', 'X', 'CATCHING', 5), rep('bluefish', 'B', 'SLOW', 15), rep('red-drum', 'A', 'CATCHING', 500)],
+      NOON,
+    )
+    expect(s.count).toBe(4)
+    expect(s.goodCount).toBe(3)
+    expect(s.latest.speciesId).toBe('spot')
+    expect(s.hotZone).toMatchObject({ zoneId: 'A', good: 2, topSpecies: 'red-drum' })
+    expect(s.goodBySpecies.get('red-drum')).toBe(2)
+    expect(bestZoneFor([rep('spot', 'X', 'CATCHING', 5)], 'spot', NOON)).toBeNull()
   })
 })
 

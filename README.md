@@ -47,6 +47,32 @@ src/
   screens/             one file per screen
 ```
 
+## Community reports
+
+Locals post quick zone-level reports (species, zone, CATCHING / BITES / SLOW /
+SKUNKED, optional count, bait, note, nickname). Anyone can read; posting needs
+the crew code. Fresh good reports add points in the matrix and can steer the
+zone pick. Reports queue offline and send on reconnect.
+
+- API: `api/reports.js` and `api/admin.js` (Vercel Functions); logic in
+  `api/_lib/reports.js`, storage in `api/_lib/store.js` (Postgres via Neon,
+  plus an in-memory store used by tests).
+- Tables are created automatically on first use.
+- Moderation: 3 flags from different phones hides a report; `/admin` (not
+  linked in the app) lets you hide/unhide/delete with the admin key.
+
+Vercel environment variables:
+
+| Variable | What |
+| --- | --- |
+| `DATABASE_URL` | Set automatically when you add a Neon Postgres database in Vercel Storage |
+| `CREW_CODE` | The code locals enter to post (case-insensitive). Change it anytime. |
+| `ADMIN_KEY` | Long random secret for `/admin` |
+| `HASH_SALT` | Optional: any random string, salts the hashed IPs used for rate limits |
+
+Without a database the app works as before and the reports features stay hidden.
+Locally, `npm run dev` has no API; use `vercel dev` to run the functions.
+
 ## Tuning the matrix
 
 Every recommendation is points with reasons, shown on the dashboard. Adjust a
