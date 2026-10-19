@@ -2,9 +2,22 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>BND :: OKI Fishing</title>
+    <meta name="description" content="Live tides, conditions, catch log and local intel for fishing Oak Island, NC." />
+    <meta name="theme-color" content="#000000" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <meta name="apple-mobile-web-app-title" content="OKI Fishing" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>oki-fishing-app</title>
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <script>
+      // Apply the saved theme before first paint (no white flash at night).
+      try {
+        var s = JSON.parse(localStorage.getItem('oki.settings.v1') || '{}')
+        if (s.theme) document.documentElement.dataset.theme = s.theme
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

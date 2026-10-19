@@ -1,16 +1,67 @@
-# React + Vite
+# BND :: OKI Fishing
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+A fast, installable fishing app for Oak Island, NC: live tide state, real sea
+temperature and surf, a "matrix" that recommends what to target, where, and with
+which rig, a 3-day forecast with best bite windows, NC size/bag limits, a
+satellite map with zones and your own private spots, and a catch log that
+auto-tags every fish with the conditions it bit in.
 
-Currently, two official plugins are available:
+Works offline once installed: tide predictions are cached for 4 days.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Run it
 
-## React Compiler
+```bash
+npm install
+npm run dev      # http://localhost:5173
+npm test         # logic tests (tides, regs, matrix, storage)
+npm run build    # production build in dist/
+npm run lint
+```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Deploys to Vercel as a static Vite site. `vercel.json` makes deep links like
+`/forecast` work on refresh.
 
-## Expanding the Oxlint configuration
+## Where things live
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+```
+src/
+  config.js            location, tide station, API coordinates: start here to move beaches
+  data/
+    species.js         THE species catalog (names, matrix profile, rig, bait)
+    regulations.js     NC limits, keyed by species id, with source + effective date
+    rigs.js            rig guide content
+    zones.js           map zones (approximate coords; tweak if a pin is off)
+  lib/                 pure logic, no React; covered by lib.test.js
+    tides.js           NOAA fetch + interpolation, tide direction / slack / stage
+    weather.js         Open-Meteo weather + marine (sea temp, waves)
+    conditions.js      "what are conditions at time t" as plain numbers
+    recommend.js       the matrix: transparent points system with reasons (WEIGHTS)
+    forecast.js        hour-by-hour outlook and best windows
+    regs.js            season / size / bag checks for the catch log
+    catchLog.js        persisted catch log, import/export (JSON + CSV)
+    settings.js        theme + saved spots
+    time.js            everything in island time (America/New_York), not the phone's
+  hooks/               useConditions (shared feed + offline cache), useNow, useBack
+  components/          ui.jsx (Screen, Btn, Choice...), TideChart, RigDiagram
+  screens/             one file per screen
+```
+
+## Tuning the matrix
+
+Every recommendation is points with reasons, shown on the dashboard. Adjust a
+species' temps, months, tide, light and zones in `data/species.js`, or the
+weights in `lib/recommend.js`. Run `npm test` afterwards.
+
+## Updating regulations
+
+Edit `data/regulations.js` and bump `REGS_META.effective` / `checked`.
+Source: NC Division of Marine Fisheries recreational size & bag limits.
+
+## Data sources
+
+- Tides: NOAA CO-OPS predictions, station 8659182 (Oak Island, Atlantic Ocean)
+- Wind, air temp, sunrise/sunset: Open-Meteo forecast API
+- Sea surface temp, waves: Open-Meteo marine API
+- Satellite: Esri World Imagery
+
+Not for navigation. Always confirm current limits with NCDMF before keeping fish.
