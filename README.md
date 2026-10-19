@@ -18,7 +18,8 @@ npm run build    # production build in dist/
 npm run lint
 ```
 
-Deploys to Vercel as a static Vite site. `vercel.json` makes deep links like
+Deploys to Vercel automatically: every push to `main` builds and goes live
+(preview deploys for other branches). It's a static Vite site; `vercel.json` makes deep links like
 `/forecast` work on refresh.
 
 ## Where things live
