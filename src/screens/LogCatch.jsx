@@ -10,6 +10,9 @@ import { recommend } from '../lib/recommend.js'
 import { useConditions } from '../hooks/useConditions.js'
 import { useNow } from '../hooks/useNow.js'
 import { useSpots } from '../lib/settings.js'
+import { postReport, useCommunity, useReports } from '../lib/community.js'
+import { REPORT_ZONE_ELSEWHERE } from '../data/community.js'
+import { Link } from 'react-router'
 import { fromLocalInput, toLocalInput } from '../lib/time.js'
 import { Btn, Choice, Empty, Screen, Section } from '../components/ui.jsx'
 
@@ -35,6 +38,9 @@ function CatchForm({ existing, catches }) {
   const cond = useConditions()
   const spots = useSpots()
   const now = useNow()
+  const { crew } = useCommunity()
+  const feed = useReports()
+  const [share, setShare] = useState(false)
 
   // Default to whatever the matrix recommends right now. Computed once, so the
   // pick never changes under the user's thumb when data refreshes.
@@ -87,9 +93,18 @@ function CatchForm({ existing, catches }) {
     }
     if (existing) updateCatch(existing.id, entry)
     else addCatch(entry)
+    if (share && canShare) {
+      // Zone-level only; notes and private spots are never shared.
+      postReport({
+        t: f.t, speciesId: f.speciesId, zoneId: f.zoneId ?? REPORT_ZONE_ELSEWHERE, status: 'CATCHING',
+        count: 1, sizeIn: f.length, bait: f.bait, cond: cs,
+      })
+    }
     navigate('/log', { replace: true })
   }
 
+  const recentEnough = now - f.t < 11.5 * 3600e3
+  const canShare = !existing && !!crew && recentEnough && feed.status !== 'unavailable'
   const where = f.spotId ? `S:${f.spotId}` : f.zoneId ? `Z:${f.zoneId}` : null
   const speciesOptions = (showAll ? SPECIES.map((s) => s.id) : QUICK_LOG_IDS).map((sid) => ({
     value: sid,
@@ -221,6 +236,35 @@ function CatchForm({ existing, catches }) {
             : 'NO CONDITIONS DATA FOR THIS TIME'}
         </div>
       </Section>
+
+      {!existing && feed.status !== 'unavailable' && (
+        <Section label="SHARE WITH THE CREW" tone="soft">
+          {!crew ? (
+            <p className="font-mono text-[11px] font-bold leading-relaxed">
+              WANT TO SHARE CATCHES TO COMMUNITY REPORTS?{' '}
+              <Link to="/reports/new" className="underline">
+                UNLOCK WITH THE CREW CODE →
+              </Link>
+            </p>
+          ) : !recentEnough ? (
+            <p className="font-mono text-[11px] font-bold">ONLY CATCHES FROM THE LAST 12 HOURS CAN BE SHARED.</p>
+          ) : (
+            <>
+              <Choice
+                options={[
+                  { value: false, label: 'KEEP PRIVATE' },
+                  { value: true, label: 'SHARE TO REPORTS' },
+                ]}
+                value={share}
+                onChange={setShare}
+              />
+              <p className="font-mono text-[10px] font-bold text-muted mt-2">
+                SHARES SPECIES, ZONE, SIZE AND BAIT. NEVER YOUR NOTES OR SAVED SPOTS.
+              </p>
+            </>
+          )}
+        </Section>
+      )}
 
       <Section label="NOTES">
         <textarea

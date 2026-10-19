@@ -7,6 +7,10 @@ import { conditionsAt } from '../lib/conditions.js'
 import { recommend, biteLabel } from '../lib/recommend.js'
 import { bagText, sizeText, isSeasonOpen } from '../lib/regs.js'
 import { useCatches } from '../lib/catchLog.js'
+import { useReports } from '../lib/community.js'
+import { summarize, FRESH_HOURS } from '../lib/communityStats.js'
+import { speciesById } from '../data/species.js'
+import { reportZoneName, statusById } from '../data/community.js'
 import { cycleTheme, useSettings, THEMES } from '../lib/settings.js'
 import { skyLabel } from '../lib/weather.js'
 import { HOUR, dateKey, fmtAgo, fmtDuration, fmtTime } from '../lib/time.js'
@@ -22,9 +26,14 @@ export default function Dashboard() {
   const now = useNow(30 * 1000)
   const catches = useCatches()
   const { theme } = useSettings()
+  const feed = useReports()
 
   const c = useMemo(() => (cond.hasAny ? conditionsAt(cond.data, now, { now }) : null), [cond.data, cond.hasAny, now])
-  const rec = useMemo(() => (c && (c.tide || c.waterF != null || c.windMph != null) ? recommend(c) : null), [c])
+  const rec = useMemo(
+    () => (c && (c.tide || c.waterF != null || c.windMph != null) ? recommend(c, { reports: feed.reports }) : null),
+    [c, feed.reports],
+  )
+  const local = useMemo(() => summarize(feed.reports, now), [feed.reports, now])
   const todayCount = catches.filter((x) => dateKey(x.t) === dateKey(now)).length
 
   const tide = c?.tide
@@ -37,13 +46,18 @@ export default function Dashboard() {
         <h1 className="text-2xl font-black tracking-tighter">
           {SITE.brand} <span className="relative -top-0.5 mx-0.5 tracking-widest">::</span> {SITE.name}
         </h1>
-        <button
-          onClick={cycleTheme}
-          className="font-mono text-xs font-bold border-2 border-on-bar px-2 py-1 active:opacity-60"
-          aria-label="Switch theme"
-        >
-          {THEMES.find((t) => t.id === theme)?.label ?? 'DAY'}
-        </button>
+        <div className="flex gap-1.5">
+          <button
+            onClick={cycleTheme}
+            className="font-mono text-xs font-bold border-2 border-on-bar px-2 py-1 active:opacity-60"
+            aria-label="Switch theme"
+          >
+            {THEMES.find((t) => t.id === theme)?.label ?? 'DAY'}
+          </button>
+          <Link to="/more" className="font-mono text-xs font-bold border-2 border-on-bar px-2 py-1 active:opacity-60" aria-label="More">
+            ☰
+          </Link>
+        </div>
       </header>
 
       {/* TIDE */}
@@ -90,6 +104,9 @@ export default function Dashboard() {
         />
         <Stat label="AIR" value={deg(c?.airF)} sub={skyLabel(c?.code)} dim={c?.airF == null} />
       </div>
+
+      {/* COMMUNITY */}
+      {feed.status !== 'unavailable' && <OnTheBeach local={local} now={now} />}
 
       {/* MATRIX */}
       <section className="p-5 border-b-4 border-ink bg-soft">
@@ -157,16 +174,47 @@ export default function Dashboard() {
         </Btn>
         <div className="grid grid-cols-3 gap-2">
           <Btn size="md" to="/forecast" className="text-xs">FORECAST</Btn>
+          <Btn size="md" to="/reports" className="text-xs">REPORTS{local.count ? ` (${local.count})` : ''}</Btn>
+          <Btn size="md" to="/map" className="text-xs">MAP</Btn>
           <Btn size="md" to="/rigs" className="text-xs">HOW-TO RIGS</Btn>
           <Btn size="md" to="/regs" className="text-xs">REGULATIONS</Btn>
-          <Btn size="md" to="/map" className="text-xs">MAP</Btn>
           <Btn size="md" to="/log" className="text-xs">MY LOG{todayCount ? ` (${todayCount})` : ''}</Btn>
-          <Btn size="md" to="/more" className="text-xs">MORE</Btn>
         </div>
       </div>
 
       <SyncFooter cond={cond} now={now} />
     </Screen>
+  )
+}
+
+function OnTheBeach({ local, now }) {
+  const g = local.latestGood
+  return (
+    <Link to="/reports" className="block p-5 border-b-4 border-ink active:bg-soft">
+      <div className="flex justify-between items-center mb-2">
+        <Label>ON THE BEACH · LAST {FRESH_HOURS} HRS</Label>
+        <span className="font-mono text-[11px] font-bold">{local.count ? `${local.count} REPORT${local.count > 1 ? 'S' : ''} →` : 'POST ONE →'}</span>
+      </div>
+      {g ? (
+        <>
+          <div className="text-2xl font-black tracking-tighter leading-tight">
+            {statusById(g.status)?.label}: {speciesById(g.speciesId)?.name}
+          </div>
+          <div className="font-mono text-[11px] font-bold">
+            {reportZoneName(g.zoneId)} · {fmtAgo(g.t, now)}
+          </div>
+          {local.hotZone && local.hotZone.zoneId !== g.zoneId && (
+            <div className="font-mono text-[11px] font-bold text-muted mt-1">
+              MOST ACTION: {reportZoneName(local.hotZone.zoneId)} ({local.hotZone.good})
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="font-mono text-xs font-bold text-muted">
+          {local.count ? `${local.count} REPORT${local.count > 1 ? 'S' : ''}, NOTHING CATCHING YET.` : 'NO REPORTS YET. BE THE FIRST TO SAY HOW IT IS OUT THERE.'}
+        </div>
+      )}
+    </Link>
   )
 }
 

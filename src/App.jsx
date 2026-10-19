@@ -8,6 +8,9 @@ import Rigs from './screens/Rigs.jsx'
 import Regulations from './screens/Regulations.jsx'
 import Forecast from './screens/Forecast.jsx'
 import More from './screens/More.jsx'
+import Reports from './screens/Reports.jsx'
+import PostReport from './screens/PostReport.jsx'
+import Admin from './screens/Admin.jsx'
 import { Empty, Screen } from './components/ui.jsx'
 
 // Leaflet is the heaviest dependency: only load it when the map is opened.
@@ -49,6 +52,9 @@ export default function App() {
           }
         />
         <Route path="/more" element={<More />} />
+        <Route path="/reports" element={<Reports />} />
+        <Route path="/reports/new" element={<PostReport />} />
+        <Route path="/admin" element={<Admin />} />
         <Route path="*" element={<Screen title="404"><Empty title="NOTHING HERE">THAT PAGE DOESN'T EXIST.</Empty></Screen>} />
       </Routes>
     </BrowserRouter>

@@ -5,6 +5,8 @@ import { catchStore, download, exportCSV, exportJSON, importCatches, useCatches 
 import { setTheme, spotStore, THEMES, useSettings, useSpots } from '../lib/settings.js'
 import { dateKey } from '../lib/time.js'
 import { Btn, Choice, Screen, Section } from '../components/ui.jsx'
+import { setCrew, setNickname, useCommunity } from '../lib/community.js'
+import CrewGate from '../components/CrewGate.jsx'
 
 export default function More() {
   const { theme } = useSettings()
@@ -13,6 +15,7 @@ export default function More() {
   const fileRef = useRef(null)
   const [msg, setMsg] = useState(null)
   const [confirmWipe, setConfirmWipe] = useState(false)
+  const community = useCommunity()
 
   const stamp = () => dateKey(Date.now())
   const backup = () =>
@@ -46,6 +49,28 @@ export default function More() {
         <Choice cols={3} options={THEMES.map((t) => ({ value: t.id, label: t.label }))} value={theme} onChange={setTheme} />
         <p className="font-mono text-[11px] font-bold text-muted mt-2">RED MODE KEEPS YOUR NIGHT VISION ON THE BEACH.</p>
       </Section>
+
+      {community.crew ? (
+        <Section label="COMMUNITY REPORTS">
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <span className="font-mono text-xs font-bold">✓ UNLOCKED: YOU CAN POST</span>
+            <Btn size="sm" variant="ghost" onClick={() => setCrew(null)}>
+              FORGET CODE
+            </Btn>
+          </div>
+          <label className="block">
+            <span className="text-xs font-bold tracking-widest text-muted">NICKNAME</span>
+            <input
+              value={community.nickname ?? ''}
+              onChange={(e) => setNickname(e.target.value)}
+              placeholder="LOCAL ANGLER"
+              className="mt-1 w-full border-4 border-ink bg-paper p-3 font-black uppercase placeholder:text-faint"
+            />
+          </label>
+        </Section>
+      ) : (
+        <CrewGate compact />
+      )}
 
       <Section label={`YOUR DATA · ${catches.length} CATCHES · ${spots.length} SPOTS`} tone="soft">
         <p className="font-mono text-[11px] font-bold leading-relaxed mb-3">
